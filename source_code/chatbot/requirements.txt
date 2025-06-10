@@ -1,0 +1,12 @@
+numpy
+torch
+transformers
+sentence-transformers
+flask
+google.generativeai
+flask-cors
+pandas
+scikit-learn
+langchain
+langchain-community
+neo4j
