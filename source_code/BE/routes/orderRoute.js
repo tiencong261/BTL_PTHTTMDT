@@ -19,6 +19,8 @@ import {
   getRevenueByDay,
   getRevenueByMonth,
   getRevenueByProduct,
+  placeOrderSolana,
+  verifySolana,
 } from "../controllers/orderController.js";
 import adminAuth from "../middleware/adminAuth.js";
 import authUser from "../middleware/auth.js";
@@ -37,6 +39,8 @@ orderRouter.get("/revenue-by-month", getRevenueByMonth);
 orderRouter.get("/revenue-by-product", getRevenueByProduct);
 
 //Payment Features
+orderRouter.post("/solana", authUser, placeOrderSolana);
+orderRouter.post("/verifySolana", authUser, verifySolana);
 orderRouter.post("/place", authUser, placeOrder);
 orderRouter.post("/stripe", authUser, placeOrderStripe);
 orderRouter.post("/razorpay", authUser, placeOrderRazorpay);
@@ -57,4 +61,3 @@ orderRouter.post("/process-return", adminAuth, processReturnOrder); // admin x�
 orderRouter.get("/return-orders", adminAuth, getReturnOrders); // admin lấy danh sách
 
 export default orderRouter;
-// 12"35
