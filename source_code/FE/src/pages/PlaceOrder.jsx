@@ -5,9 +5,13 @@ import CartTotal from "../components/CartTotal";
 import { ShopContext } from "../context/ShopContext";
 import axios from "axios";
 import { toast } from "react-toastify";
+import SolanaPayment from "../components/SolanaPayment";
 
 const PlaceOrder = () => {
   const [method, setMethod] = useState("cod");
+  const [showSolanaPayment, setShowSolanaPayment] = useState(false);
+  const [solanaPaymentData, setSolanaPaymentData] = useState(null);
+  const [currentOrderId, setCurrentOrderId] = useState(null);
   const {
     navigate,
     backendUrl,
@@ -167,6 +171,21 @@ const PlaceOrder = () => {
           }
           break;
 
+        case "solana":
+          const responseSolana = await axios.post(
+            backendUrl + "/api/order/solana",
+            orderData,
+            { headers: { token } }
+          );
+          if (responseSolana.data.success) {
+            setSolanaPaymentData(responseSolana.data.paymentData);
+            setCurrentOrderId(responseSolana.data.orderId);
+            setShowSolanaPayment(true);
+          } else {
+            toast.error(responseSolana.data.message);
+          }
+          break;
+
         default:
           break;
       }
@@ -175,6 +194,32 @@ const PlaceOrder = () => {
       toast.error(error.message);
     }
   };
+
+  const handleSolanaPaymentSuccess = () => {
+    setCartItems({});
+    navigate("/orders");
+  };
+
+  const handleSolanaPaymentCancel = () => {
+    setShowSolanaPayment(false);
+    setSolanaPaymentData(null);
+    setCurrentOrderId(null);
+  };
+
+  if (showSolanaPayment && solanaPaymentData) {
+    return (
+      <div className="flex justify-center items-center min-h-[80vh] pt-14">
+        <SolanaPayment
+          paymentData={solanaPaymentData}
+          orderId={currentOrderId}
+          backendUrl={backendUrl}
+          token={token}
+          onPaymentSuccess={handleSolanaPaymentSuccess}
+          onPaymentCancel={handleSolanaPaymentCancel}
+        />
+      </div>
+    );
+  }
 
   return (
     <form
@@ -271,9 +316,8 @@ const PlaceOrder = () => {
             className="flex items-center gap-3 border p-2 px-3 cursor-pointer"
           >
             <p
-              className={`min-w-3 h-3.5 border rounded-full ${
-                method === "stripe" ? "bg-green-400" : ""
-              }`}
+              className={`min-w-3 h-3.5 border rounded-full ${method === "stripe" ? "bg-green-400" : ""
+                }`}
             ></p>
             <img className="h-5 mx-4" src={assets.stripe_logo} alt="" />
           </div>
@@ -282,20 +326,29 @@ const PlaceOrder = () => {
             className="flex items-center gap-3 border p-2 px-3 cursor-pointer"
           >
             <p
-              className={`min-w-3 h-3.5 border rounded-full ${
-                method === "vnpay" ? "bg-green-400" : ""
-              }`}
+              className={`min-w-3 h-3.5 border rounded-full ${method === "vnpay" ? "bg-green-400" : ""
+                }`}
             ></p>
             <img className="h-5 mx-4" src={assets.vnpay_logo} alt="" />
+          </div>
+          <div
+            onClick={() => setMethod("solana")}
+            className="flex items-center gap-3 border p-2 px-3 cursor-pointer"
+          >
+            <p
+              className={`min-w-3 h-3.5 border rounded-full ${
+                method === "solana" ? "bg-green-400" : ""
+              }`}
+            ></p>
+            <p className="text-gray-500 text-sm font-medium mx-4">SOLANA</p>
           </div>
           <div
             onClick={() => setMethod("cod")}
             className="flex items-center gap-3 border p-2 px-3 cursor-pointer"
           >
             <p
-              className={`min-w-3 h-3.5 border rounded-full ${
-                method === "cod" ? "bg-green-400" : ""
-              }`}
+              className={`min-w-3 h-3.5 border rounded-full ${method === "cod" ? "bg-green-400" : ""
+                }`}
             ></p>
             <p className="text-gray-500 text-sm font-medium mx-4">
               CASH ON DELIVERY
