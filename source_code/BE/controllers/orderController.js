@@ -8,6 +8,9 @@ import querystring from "qs";
 import { v4 as uuidv4 } from "uuid";
 import axios from "axios";
 import mongoose from "mongoose";
+import SolanaService from '../services/solanaService.js';
+
+const solanaService = new SolanaService();
 
 // global variables
 const currency = "inr"; // Lưu ý: VNPAY chỉ hỗ trợ VND
@@ -19,6 +22,60 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 //   key_id: process.env.RAZORPAY_KEY_ID,
 //   key_secret: process.env.RAZORPAY_KEY_SECRET,
 // });
+
+const placeOrderSolana = async (req, res) => {
+    try {
+        const { userId, items, amount, address } = req.body;
+        
+        // Tạo order data
+        const orderData = {
+            userId,
+            items,
+            address,
+            amount,
+            paymentMethod: "Solana",
+            payment: false,
+            date: Date.now()
+        };
+
+        const newOrder = new orderModel(orderData);
+        await newOrder.save();
+
+        // Tạo Solana payment request
+        const paymentRequest = await solanaService.createPaymentRequest(
+            amount,
+            newOrder._id.toString(),
+            `Thanh toán đơn hàng #${newOrder._id}`
+        );
+
+        // Generate QR code
+        const qrCode = await solanaService.generateQRCode(paymentRequest.paymentUrl);
+
+        // Cập nhật order với thông tin Solana
+        await orderModel.findByIdAndUpdate(newOrder._id, {
+            cryptoPayment: {
+                address: paymentRequest.recipient,
+                amount: paymentRequest.solAmount,
+                status: 'pending',
+                qrcode_url: qrCode
+            }
+        });
+
+        res.json({
+            success: true,
+            message: "Solana payment request created",
+            orderId: newOrder._id,
+            paymentData: {
+                ...paymentRequest,
+                qrCode
+            }
+        });
+
+    } catch (error) {
+        console.log(error);
+        res.json({ success: false, message: error.message });
+    }
+};
 
 //Placing orders using COD Method
 const placeOrder = async (req, res) => {
@@ -141,6 +198,42 @@ const placeOrderRazorpay = async (req, res) => {
     console.error(error);
     res.json({ success: false, message: error.message });
   }
+};
+
+const verifySolana = async (req, res) => {
+    try {
+        const { orderId, signature } = req.body;
+        
+        const order = await orderModel.findById(orderId);
+        if (!order) {
+            return res.json({ success: false, message: "Order not found" });
+        }
+
+        // Verify transaction
+        const verification = await solanaService.verifyPayment(
+            signature,
+            order.cryptoPayment.amount,
+            order.cryptoPayment.address
+        );
+
+        if (verification.verified) {
+            // Cập nhật order
+            await orderModel.findByIdAndUpdate(orderId, {
+                payment: true,
+                paymentTime: Date.now(),
+                'cryptoPayment.status': 'completed',
+                'cryptoPayment.txid': signature
+            });
+
+            res.json({ success: true, message: "Payment verified successfully" });
+        } else {
+            res.json({ success: false, message: verification.message });
+        }
+
+    } catch (error) {
+        console.log(error);
+        res.json({ success: false, message: error.message });
+    }
 };
 
 //Verify Razorpay Payment
@@ -629,4 +722,6 @@ export {
   getRevenueByDay,
   getRevenueByMonth,
   getRevenueByProduct,
+  placeOrderSolana,
+  verifySolana,
 };
